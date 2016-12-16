@@ -4,5 +4,5 @@ import java.util.List;
 
 public interface RequestCallback {
     void onSuccess(List response);
-    void onFail(Object response);
+    void onFail(List response);
 }

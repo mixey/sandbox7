@@ -22,6 +22,10 @@ public abstract class RequestListAdapter<T> extends BaseAdapter implements Reque
     protected List<T> listData;
     protected LayoutInflater layoutInflater;
     private List<T> cache;
+    private int pageNumber = 0;
+    private boolean inProgress;
+    private boolean hasConnection;
+    private boolean isNextRequest;
 
     public RequestListAdapter(Context context) {
         this.context = context;
@@ -48,59 +52,38 @@ public abstract class RequestListAdapter<T> extends BaseAdapter implements Reque
     @Override
     public abstract View getView(int position, View convertView, ViewGroup parent);
 
-    public void update(List<T> response) {
-        this.listData = response;
-        notifyDataSetChanged();
-    }
-
     public void refreshData() {
-        if (cache != null) {
-            onSuccess(cache);
-            return;
-        }
-
-        Request request = new Request();
+        Request request = new Request("http://4pda.ru/news/page/" + pageNumber);
         request.setCallback(this);
         request.execute();
+        inProgress = true;
     }
 
     @Override
     public void onSuccess(List response) {
-        listData = response;
+        if (listData == null || !isNextRequest)
+            listData = response;
+        else
+            listData.addAll(response);
         cache = listData;
 
+        inProgress = false;
+        isNextRequest = false;
+        hasConnection = true;
         notifyDataSetChanged();
     }
 
     @Override
-    public void onFail(Object response) {
+    public void onFail(List response) {
+        hasConnection = !response.get(0).toString().equals("-1");
+        if (!hasConnection && cache != null) {
+            listData = cache;
+            notifyDataSetChanged();
+        }
+        inProgress = false;
     }
 
-    @Override
-    protected void finalize() throws Throwable {
-        saveCache();
-
-        super.finalize();
-//        SharedPreferences settings = context.getSharedPreferences("rss.cache", Context.MODE_PRIVATE);
-//        SharedPreferences.Editor editor = settings.edit();
-//        JSONArray arr = new JSONArray();
-//        arr.put(cache);
-//        editor.putString("data", arr.toString());
-//        editor.commit();
-    }
-
-    private void saveCache() {
-//        JSONObject obj = new JSONObject();
-//        try {
-//            obj.put("data", listData);
-//            SharedPreferences settings = context.getSharedPreferences("rss.cache", Context.MODE_PRIVATE);
-//            SharedPreferences.Editor editor = settings.edit();
-//            editor.putString("data", obj.toString());
-//            editor.commit();
-//
-//        } catch (JSONException e) {
-//            e.printStackTrace();
-//        }
+    public void saveCache() {
         try {
             FileOutputStream fos = context.openFileOutput("rss.cache", Context.MODE_PRIVATE);
             ObjectOutputStream os = new ObjectOutputStream(fos);
@@ -113,16 +96,6 @@ public abstract class RequestListAdapter<T> extends BaseAdapter implements Reque
     }
 
     private void loadCache() {
-//        try {
-//            SharedPreferences settings = context.getSharedPreferences("rss.cache", Context.MODE_PRIVATE);
-//            String obj = settings.getString("data", "");
-//            JSONObject qwe = new JSONObject(obj);
-//            if (qwe != null && qwe.has("data"))
-//                listData = (List<T>) qwe.get("data");
-//
-//        } catch (JSONException e) {
-//            e.printStackTrace();
-//        }
         try {
             FileInputStream fis = context.openFileInput("rss.cache");
             ObjectInputStream is = new ObjectInputStream(fis);
@@ -132,5 +105,13 @@ public abstract class RequestListAdapter<T> extends BaseAdapter implements Reque
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void nextPage() {
+        if (inProgress || !hasConnection) return;
+
+        pageNumber++;
+        isNextRequest = true;
+        refreshData();
     }
 }

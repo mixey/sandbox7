@@ -16,11 +16,12 @@ import java.util.List;
 
 public class Request extends AsyncTask<String, String, List> {
     protected RequestCallback callback;
-//    protected String targetUrl = "http://4pda.ru/feed";
-    protected String targetUrl = "http://4pda.ru/news/1";
+    //    protected String targetUrl = "http://4pda.ru/feed";
+    protected String targetUrl;
     private boolean isFailed;
 
-    public Request() {
+    public Request(String url) {
+        targetUrl = url;
     }
 
     public void setCallback(RequestCallback callback) {
@@ -32,19 +33,21 @@ public class Request extends AsyncTask<String, String, List> {
         HttpURLConnection urlConnection = null;
         InputStream in = null;
         List result = null;
+        int responseCode = -1;
 
         try {
             URL url = new URL(targetUrl);
             urlConnection = (HttpURLConnection) url.openConnection();
+            responseCode = urlConnection.getResponseCode();
             in = urlConnection.getInputStream();
 
             result = new FeedReader(new BufferedReader(
                     new InputStreamReader(in, "windows-1251"))).getData();
 
-
         } catch (Exception ex) {
             isFailed = true;
             result = new ArrayList();
+            result.add(responseCode);
             result.add(ex.getMessage());
         } finally {
             if (urlConnection != null)
@@ -68,6 +71,6 @@ public class Request extends AsyncTask<String, String, List> {
         if (!isFailed)
             callback.onSuccess(result);
         else
-            callback.onFail(result.get(0));
+            callback.onFail(result);
     }
 }
